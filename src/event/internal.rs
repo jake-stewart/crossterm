@@ -86,4 +86,8 @@ pub(crate) enum InternalEvent {
     /// A color scheme response (CSI ? 997 ; 1/2 n).
     #[cfg(unix)]
     ColorSchemeResponse(ColorScheme),
+    /// An APC reply to a Kitty graphics *query action* — receiving one means
+    /// the terminal supports the graphics protocol.
+    #[cfg(unix)]
+    GraphicsSupportResponse,
 }

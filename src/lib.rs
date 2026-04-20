@@ -247,6 +247,9 @@ pub mod cursor;
 /// A module to read events.
 #[cfg(feature = "events")]
 pub mod event;
+/// A module to query terminal graphics capabilities.
+#[cfg(feature = "events")]
+pub mod graphics;
 /// A module to apply attributes and colors on your text.
 pub mod style;
 /// A module to work with the terminal.

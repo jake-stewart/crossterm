@@ -75,6 +75,7 @@ pub(crate) fn parse_event(
                     }
                     b'[' => parse_csi(buffer),
                     b']' => parse_osc(buffer),
+                    b'_' => parse_apc(buffer),
                     b'\x1B' => Ok(Some(InternalEvent::Event(Event::Key(KeyCode::Esc.into())))),
                     _ => parse_event(&buffer[1..], input_available).map(|event_option| {
                         event_option.map(|event| {
@@ -967,6 +968,36 @@ fn parse_osc(buffer: &[u8]) -> io::Result<Option<InternalEvent>> {
     }
 }
 
+fn parse_apc(buffer: &[u8]) -> io::Result<Option<InternalEvent>> {
+    // APC is `ESC _ ... ESC \` (ST).
+    assert!(buffer.starts_with(b"\x1B_"));
+
+    // Scan for ST, starting after `ESC _`.
+    let mut i = 2;
+    let end = loop {
+        if i >= buffer.len() {
+            return Ok(None);
+        }
+        if buffer[i] == b'\x1B' {
+            if i + 1 >= buffer.len() {
+                return Ok(None);
+            }
+            if buffer[i + 1] == b'\\' {
+                break i + 2;
+            }
+        }
+        i += 1;
+    };
+
+    // `ESC _ G ...` is a Kitty graphics reply. We don't care about the
+    // payload — any response at all means the terminal supports the protocol.
+    if end >= 4 && buffer[2] == b'G' {
+        Ok(Some(InternalEvent::GraphicsSupportResponse))
+    } else {
+        Err(could_not_parse_event_error())
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use crate::event::{KeyEventState, KeyModifiers, MouseButton, MouseEvent};
@@ -1657,5 +1688,30 @@ mod tests {
         // Invalid mode and wrong code.
         assert!(parse_event(b"\x1B[?997;3n", false).is_err());
         assert!(parse_event(b"\x1B[?998;1n", false).is_err());
+    }
+
+    #[test]
+    fn test_parse_apc_graphics_support_response() {
+        assert_eq!(
+            parse_event(b"\x1B_Gi=31;OK\x1B\\", false).unwrap(),
+            Some(InternalEvent::GraphicsSupportResponse),
+        );
+        assert_eq!(
+            parse_event(b"\x1B_Gi=31;ENOENT:no such image\x1B\\", false).unwrap(),
+            Some(InternalEvent::GraphicsSupportResponse),
+        );
+    }
+
+    #[test]
+    fn test_parse_apc_incomplete() {
+        assert_eq!(parse_event(b"\x1B_G", true).unwrap(), None);
+        assert_eq!(parse_event(b"\x1B_Gi=31;OK", true).unwrap(), None);
+        assert_eq!(parse_event(b"\x1B_Gi=31;OK\x1B", true).unwrap(), None);
+    }
+
+    #[test]
+    fn test_parse_apc_non_graphics_rejected() {
+        // APC not starting with `G` (some other application command) is rejected.
+        assert!(parse_event(b"\x1B_Xfoo\x1B\\", false).is_err());
     }
 }

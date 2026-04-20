@@ -76,6 +76,21 @@ impl Filter for ColorSchemeFilter {
     }
 }
 
+#[cfg(unix)]
+#[derive(Debug, Clone)]
+pub(crate) struct GraphicsSupportFilter;
+
+#[cfg(unix)]
+impl Filter for GraphicsSupportFilter {
+    fn eval(&self, event: &InternalEvent) -> bool {
+        // PrimaryDeviceAttributes signals the graphics reply (if any) is done.
+        matches!(
+            *event,
+            InternalEvent::GraphicsSupportResponse | InternalEvent::PrimaryDeviceAttributes
+        )
+    }
+}
+
 #[derive(Debug, Clone)]
 pub(crate) struct EventFilter;
 
