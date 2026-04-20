@@ -76,6 +76,12 @@ pub(crate) enum InternalEvent {
     #[cfg(unix)]
     KeyboardEnhancementFlags(KeyboardEnhancementFlags),
     /// Attributes and architectural class of the terminal.
+    /// The inner `Vec` holds the semicolon-separated numeric parameters from
+    /// the `ESC [ ? <p1> ; <p2> ; … c` response (DA1).
     #[cfg(unix)]
-    PrimaryDeviceAttributes,
+    PrimaryDeviceAttributes(Vec<u16>),
+    /// An APC reply to a Kitty graphics *query action* — receiving one means
+    /// the terminal supports the graphics protocol.
+    #[cfg(unix)]
+    GraphicsSupportResponse,
 }
