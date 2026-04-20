@@ -292,15 +292,23 @@ fn parse_csi_keyboard_enhancement_flags(buffer: &[u8]) -> io::Result<Option<Inte
 }
 
 fn parse_csi_primary_device_attributes(buffer: &[u8]) -> io::Result<Option<InternalEvent>> {
-    // ESC [ 64 ; attr1 ; attr2 ; ... ; attrn ; c
+    // ESC [ ? attr1 ; attr2 ; ... c  — DA1 response.
+    // See <https://vt100.net/docs/vt510-rm/DA1.html>
     assert!(buffer.starts_with(b"\x1B[?"));
     assert!(buffer.ends_with(b"c"));
 
-    // This is a stub for parsing the primary device attributes. This response is not
-    // exposed in the crossterm API so we don't need to parse the individual attributes yet.
-    // See <https://vt100.net/docs/vt510-rm/DA1.html>
+    let s = std::str::from_utf8(&buffer[3..buffer.len() - 1])
+        .map_err(|_| could_not_parse_event_error())?;
 
-    Ok(Some(InternalEvent::PrimaryDeviceAttributes))
+    let attrs: Vec<u16> = if s.is_empty() {
+        Vec::new()
+    } else {
+        s.split(';')
+            .map(|p| p.parse::<u16>().map_err(|_| could_not_parse_event_error()))
+            .collect::<io::Result<Vec<u16>>>()?
+    };
+
+    Ok(Some(InternalEvent::PrimaryDeviceAttributes(attrs)))
 }
 
 fn parse_csi_color_scheme_response(buffer: &[u8]) -> io::Result<Option<InternalEvent>> {

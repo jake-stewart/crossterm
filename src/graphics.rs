@@ -9,3 +9,4 @@
 pub(crate) mod sys;
 
 pub use sys::query_graphics_support;
+pub use sys::query_sixel_support;

@@ -30,7 +30,7 @@ impl Filter for KeyboardEnhancementFlagsFilter {
         // progressive keyboard enhancement.
         matches!(
             *event,
-            InternalEvent::KeyboardEnhancementFlags(_) | InternalEvent::PrimaryDeviceAttributes
+            InternalEvent::KeyboardEnhancementFlags(_) | InternalEvent::PrimaryDeviceAttributes(_)
         )
     }
 }
@@ -42,7 +42,22 @@ pub(crate) struct PrimaryDeviceAttributesFilter;
 #[cfg(unix)]
 impl Filter for PrimaryDeviceAttributesFilter {
     fn eval(&self, event: &InternalEvent) -> bool {
-        matches!(*event, InternalEvent::PrimaryDeviceAttributes)
+        matches!(*event, InternalEvent::PrimaryDeviceAttributes(_))
+    }
+}
+
+#[cfg(unix)]
+#[derive(Debug, Clone)]
+pub(crate) struct GraphicsSupportFilter;
+
+#[cfg(unix)]
+impl Filter for GraphicsSupportFilter {
+    fn eval(&self, event: &InternalEvent) -> bool {
+        // PrimaryDeviceAttributes signals the graphics reply (if any) is done.
+        matches!(
+            *event,
+            InternalEvent::GraphicsSupportResponse | InternalEvent::PrimaryDeviceAttributes(_)
+        )
     }
 }
 
@@ -56,7 +71,7 @@ impl Filter for ColorQueryFilter {
         // PrimaryDeviceAttributes signals all OSC replies are done.
         matches!(
             *event,
-            InternalEvent::ColorResponse(_) | InternalEvent::PrimaryDeviceAttributes
+            InternalEvent::ColorResponse(_) | InternalEvent::PrimaryDeviceAttributes(_)
         )
     }
 }
@@ -71,22 +86,7 @@ impl Filter for ColorSchemeFilter {
         // PrimaryDeviceAttributes signals the scheme reply is done.
         matches!(
             *event,
-            InternalEvent::ColorSchemeResponse(_) | InternalEvent::PrimaryDeviceAttributes
-        )
-    }
-}
-
-#[cfg(unix)]
-#[derive(Debug, Clone)]
-pub(crate) struct GraphicsSupportFilter;
-
-#[cfg(unix)]
-impl Filter for GraphicsSupportFilter {
-    fn eval(&self, event: &InternalEvent) -> bool {
-        // PrimaryDeviceAttributes signals the graphics reply (if any) is done.
-        matches!(
-            *event,
-            InternalEvent::GraphicsSupportResponse | InternalEvent::PrimaryDeviceAttributes
+            InternalEvent::ColorSchemeResponse(_) | InternalEvent::PrimaryDeviceAttributes(_)
         )
     }
 }
@@ -140,13 +140,13 @@ mod tests {
                 crate::event::KeyboardEnhancementFlags::DISAMBIGUATE_ESCAPE_CODES
             ))
         );
-        assert!(KeyboardEnhancementFlagsFilter.eval(&InternalEvent::PrimaryDeviceAttributes));
+        assert!(KeyboardEnhancementFlagsFilter.eval(&InternalEvent::PrimaryDeviceAttributes(vec![])));
     }
 
     #[test]
     fn test_primary_device_attributes_filter_filters_primary_device_attributes() {
         assert!(!PrimaryDeviceAttributesFilter.eval(&InternalEvent::Event(Event::Resize(10, 10))));
-        assert!(PrimaryDeviceAttributesFilter.eval(&InternalEvent::PrimaryDeviceAttributes));
+        assert!(PrimaryDeviceAttributesFilter.eval(&InternalEvent::PrimaryDeviceAttributes(vec![])));
     }
 
     #[test]

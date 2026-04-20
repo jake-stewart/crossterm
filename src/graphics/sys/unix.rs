@@ -5,7 +5,7 @@ use std::{
 };
 
 use crate::event::{
-    filter::GraphicsSupportFilter,
+    filter::{GraphicsSupportFilter, PrimaryDeviceAttributesFilter},
     internal::{self, InternalEvent},
 };
 
@@ -52,9 +52,54 @@ pub fn query_graphics_support() -> io::Result<bool> {
             ));
         }
         match internal::read(&GraphicsSupportFilter)? {
-            InternalEvent::PrimaryDeviceAttributes => return Ok(supported),
+            InternalEvent::PrimaryDeviceAttributes(_) => return Ok(supported),
             InternalEvent::GraphicsSupportResponse => supported = true,
             _ => {}
         }
+    }
+}
+
+/// Queries the terminal for Sixel graphics support.
+///
+/// Sends a primary device attributes request (`DA1`). Terminals that support
+/// Sixel include attribute `4` in their response.
+///
+/// See <https://vt100.net/docs/vt510-rm/DA1.html> and
+/// <https://www.vt100.net/docs/vt3xx-gp/chapter14.html>.
+///
+/// This function must be called while raw mode is enabled.
+pub fn query_sixel_support() -> io::Result<bool> {
+    // Drain stale DA1 responses.
+    while internal::poll(Some(Duration::ZERO), &PrimaryDeviceAttributesFilter)? {
+        internal::read(&PrimaryDeviceAttributesFilter)?;
+    }
+
+    // DA1 request.
+    const QUERY: &[u8] = b"\x1B[c";
+
+    let result = File::options()
+        .write(true)
+        .open("/dev/tty")
+        .and_then(|mut file| {
+            file.write_all(QUERY)?;
+            file.flush()
+        });
+    if result.is_err() {
+        let mut stdout = io::stdout();
+        stdout.write_all(QUERY)?;
+        stdout.flush()?;
+    }
+
+    let timeout = Duration::from_secs(2);
+
+    if !internal::poll(Some(timeout), &PrimaryDeviceAttributesFilter)? {
+        return Err(io::Error::new(
+            io::ErrorKind::Other,
+            "The terminal sixel support could not be determined within a normal duration",
+        ));
+    }
+    match internal::read(&PrimaryDeviceAttributesFilter)? {
+        InternalEvent::PrimaryDeviceAttributes(attrs) => Ok(attrs.contains(&4)),
+        _ => Ok(false),
     }
 }
