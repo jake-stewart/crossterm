@@ -250,6 +250,9 @@ pub mod event;
 /// A module to query terminal graphics capabilities.
 #[cfg(feature = "events")]
 pub mod graphics;
+/// A module for batching terminal capability queries.
+#[cfg(all(unix, feature = "events"))]
+pub mod query;
 /// A module to apply attributes and colors on your text.
 pub mod style;
 /// A module to work with the terminal.

@@ -46,50 +46,6 @@ impl Filter for PrimaryDeviceAttributesFilter {
     }
 }
 
-#[cfg(unix)]
-#[derive(Debug, Clone)]
-pub(crate) struct GraphicsSupportFilter;
-
-#[cfg(unix)]
-impl Filter for GraphicsSupportFilter {
-    fn eval(&self, event: &InternalEvent) -> bool {
-        // PrimaryDeviceAttributes signals the graphics reply (if any) is done.
-        matches!(
-            *event,
-            InternalEvent::GraphicsSupportResponse | InternalEvent::PrimaryDeviceAttributes(_)
-        )
-    }
-}
-
-#[cfg(unix)]
-#[derive(Debug, Clone)]
-pub(crate) struct ColorQueryFilter;
-
-#[cfg(unix)]
-impl Filter for ColorQueryFilter {
-    fn eval(&self, event: &InternalEvent) -> bool {
-        // PrimaryDeviceAttributes signals all OSC replies are done.
-        matches!(
-            *event,
-            InternalEvent::ColorResponse(_) | InternalEvent::PrimaryDeviceAttributes(_)
-        )
-    }
-}
-
-#[cfg(unix)]
-#[derive(Debug, Clone)]
-pub(crate) struct ColorSchemeFilter;
-
-#[cfg(unix)]
-impl Filter for ColorSchemeFilter {
-    fn eval(&self, event: &InternalEvent) -> bool {
-        // PrimaryDeviceAttributes signals the scheme reply is done.
-        matches!(
-            *event,
-            InternalEvent::ColorSchemeResponse(_) | InternalEvent::PrimaryDeviceAttributes(_)
-        )
-    }
-}
 
 #[derive(Debug, Clone)]
 pub(crate) struct EventFilter;

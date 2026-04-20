@@ -3,17 +3,19 @@
 //! The `colors` module provides functionality to query the terminal for colors
 //! and color-related capabilities.
 //!
-//! * [`query_terminal_colors`] — fetch the RGB values of foreground, background,
-//!   cursor, or palette colors.
-//! * [`query_color_scheme`] — detect whether the terminal is in light or dark mode.
+//! Use [`ColorQuery`] and [`ColorSchemeQuery`] with
+//! [`QueryBatch`](crate::graphics::QueryBatch) to query colors from the terminal.
 //!
 //! Color scheme *change* notifications are delivered as
 //! [`Event::ColorSchemeChanged`](crate::event::Event::ColorSchemeChanged) when
 //! [`EnableColorSchemeDetection`](crate::event::EnableColorSchemeDetection) is active.
 
-pub(crate) mod sys;
-
-pub use sys::{query_color_scheme, query_terminal_colors};
+#[cfg(unix)]
+use std::io;
+#[cfg(unix)]
+use crate::event::internal::InternalEvent;
+#[cfg(unix)]
+use crate::query::TerminalQuery;
 
 /// Terminal color type, used in queries and responses.
 ///
@@ -84,4 +86,70 @@ pub(crate) struct ColorEntry {
     pub r: u8,
     pub g: u8,
     pub b: u8,
+}
+
+/// Query for an individual terminal color.
+///
+/// Returns the color as `(r, g, b)`. Use with [`QueryBatch`](crate::query::QueryBatch).
+#[cfg(unix)]
+#[derive(Clone)]
+pub struct ColorQuery(pub ColorType);
+
+#[cfg(unix)]
+impl TerminalQuery for ColorQuery {
+    type Response = (u8, u8, u8);
+
+    fn query_bytes(&self) -> Vec<u8> {
+        let n = self.0.osc_number();
+        match self.0 {
+            ColorType::Palette(index) => format!("\x1B]{n};{index};?\x1B\\").into_bytes(),
+            _ => format!("\x1B]{n};?\x1B\\").into_bytes(),
+        }
+    }
+
+    fn matches(&self, event: &InternalEvent) -> bool {
+        matches!(event, InternalEvent::ColorResponse(e) if e.color_type == self.0)
+    }
+
+    fn extract(&self, event: Option<InternalEvent>) -> io::Result<(u8, u8, u8)> {
+        match event {
+            Some(InternalEvent::ColorResponse(e)) => Ok((e.r, e.g, e.b)),
+            None => Err(io::Error::new(
+                io::ErrorKind::Other,
+                "terminal did not respond with color",
+            )),
+            _ => unreachable!(),
+        }
+    }
+}
+
+/// Query for the terminal's color scheme (dark or light mode).
+///
+/// Use with [`QueryBatch`](crate::query::QueryBatch).
+#[cfg(unix)]
+#[derive(Clone)]
+pub struct ColorSchemeQuery;
+
+#[cfg(unix)]
+impl TerminalQuery for ColorSchemeQuery {
+    type Response = ColorScheme;
+
+    fn query_bytes(&self) -> Vec<u8> {
+        b"\x1B[?996n".to_vec()
+    }
+
+    fn matches(&self, event: &InternalEvent) -> bool {
+        matches!(event, InternalEvent::ColorSchemeResponse(_))
+    }
+
+    fn extract(&self, event: Option<InternalEvent>) -> io::Result<ColorScheme> {
+        match event {
+            Some(InternalEvent::ColorSchemeResponse(s)) => Ok(s),
+            None => Err(io::Error::new(
+                io::ErrorKind::Other,
+                "terminal did not respond with color scheme",
+            )),
+            _ => unreachable!(),
+        }
+    }
 }
