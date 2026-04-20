@@ -78,4 +78,8 @@ pub(crate) enum InternalEvent {
     /// Attributes and architectural class of the terminal.
     #[cfg(unix)]
     PrimaryDeviceAttributes,
+    /// An APC reply to a Kitty graphics *query action* — receiving one means
+    /// the terminal supports the graphics protocol.
+    #[cfg(unix)]
+    GraphicsSupportResponse,
 }
