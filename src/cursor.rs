@@ -424,6 +424,59 @@ impl_display!(for EnableBlinking);
 impl_display!(for DisableBlinking);
 impl_display!(for SetCursorStyle);
 
+/// Query for the cursor's current position via DSR (`ESC [ 6 n`).
+///
+/// The terminal responds with `ESC [ <row> ; <col> R` (1-indexed). The returned
+/// tuple is `(column, row)`, both 0-indexed, matching [`position`].
+///
+/// Use with [`QueryBatch`](crate::query::QueryBatch):
+///
+/// ```no_run
+/// # #[cfg(unix)] {
+/// use crossterm::cursor::QueryCursorPosition;
+/// use crossterm::query::QueryBatch;
+///
+/// let mut batch = QueryBatch::new();
+/// let pos = batch.add(QueryCursorPosition);
+/// let results = batch.execute()?;
+/// println!("cursor: {:?}", results.get(&pos)?);
+/// # }
+/// # Ok::<(), std::io::Error>(())
+/// ```
+#[cfg(all(unix, feature = "events"))]
+#[derive(Clone)]
+pub struct QueryCursorPosition;
+
+#[cfg(all(unix, feature = "events"))]
+#[allow(private_interfaces)]
+impl crate::query::TerminalQuery for QueryCursorPosition {
+    type Response = Option<(u16, u16)>;
+
+    fn query_bytes(&self) -> Vec<u8> {
+        b"\x1B[6n".to_vec()
+    }
+
+    fn matches(&self, event: &crate::event::internal::InternalEvent) -> bool {
+        matches!(
+            event,
+            crate::event::internal::InternalEvent::CursorPosition(_, _)
+        )
+    }
+
+    fn extract(
+        &self,
+        event: Option<crate::event::internal::InternalEvent>,
+    ) -> std::io::Result<Option<(u16, u16)>> {
+        match event {
+            Some(crate::event::internal::InternalEvent::CursorPosition(col, row)) => {
+                Ok(Some((col, row)))
+            }
+            None => Ok(None),
+            _ => unreachable!(),
+        }
+    }
+}
+
 #[cfg(test)]
 #[cfg(feature = "events")]
 mod tests {
